@@ -1,7 +1,7 @@
 `json-fmt` - a JSON Formatter
 =============================
 
-Minify or prettyfy your JSONs
+Minify and prettify your JSONs
 
 ## What it is
 

@@ -1,0 +1,34 @@
+{
+  "name": "json-fmt",
+  "version": "1.0.0",
+  "homepage": "https://github.com/MaxArt2501/json-fmt",
+  "authors": [
+    "Massimo Artizzu <maxart.x@gmail.com>"
+  ],
+  "description": "Minify and prettify your JSONs",
+  "main": "dist/json-fmt.js",
+  "moduleType": [
+    "amd",
+    "globals",
+    "node"
+  ],
+  "keywords": [
+    "json",
+    "minify",
+    "prettify",
+    "transformation",
+    "uglify",
+    "formatting",
+    "formatter",
+    "indentation",
+    "indent"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}

@@ -47,7 +47,7 @@
             this.index = index;
         } else this.message = message;
     }
-    JSONError.prototype = Error();
+    JSONError.prototype = new Error();
     JSONError.prototype.name = "JSONError";
 
     /**
