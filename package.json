@@ -1,10 +1,13 @@
 {
   "name": "json-fmt",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Minify and prettify your JSONs",
   "main": "dist/json-fmt.js",
   "directories": {
     "test": "test"
+  },
+  "bin": {
+    "json-fmt": "bin/json-fmt-cli.js"
   },
   "scripts": {
     "test": "mocha"

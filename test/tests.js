@@ -146,4 +146,59 @@ describe("Options", function() {
     });
 });
 
+// Tests on buffers
+if (typeof Buffer !== "undefined") (function() {
+    var json = "{ \"disapproval\": \"ಠ_ಠ\"}",
+        expected = "{\"disapproval\":\"ಠ_ಠ\"}",
+        bufUTF8 = new Buffer(json),
+        bufUTF16le = new Buffer(json, "ucs2"),
+        bufUTF16be = new Buffer(json, "ucs2"),
+        bufUTF8BOM = Buffer.concat([ new Buffer("\xef\xbb\xbf", "binary"), bufUTF8 ]),
+        bufUTF16leBOM = Buffer.concat([ new Buffer("\xff\xfe", "binary"), bufUTF16le ]),
+        bufUTF16beBOM;
+
+    // Converting to Big Endian
+    for (var i = 0; i < bufUTF16be.length; i += 2)
+        bufUTF16be.writeUInt16BE(bufUTF16be.readUInt16LE(i), i);
+    bufUTF16beBOM = Buffer.concat([ new Buffer("\xfe\xff", "binary"), bufUTF16be ]);
+
+    describe("Buffers", function() {
+        it("should accept UTF8 buffers", function() {
+            jsonify(bufUTF8, expected);
+        });
+        it("should accept UTF8 with BOM buffers", function() {
+            jsonify(bufUTF8BOM, expected);
+        });
+        it("should accept UTF16 Little Endian buffers", function() {
+            jsonify(bufUTF16le, expected);
+        });
+        it("should accept UTF16 Little Endian with BOM buffers", function() {
+            jsonify(bufUTF16leBOM, expected);
+        });
+        it("should accept UTF16 Big Endian buffers", function() {
+            jsonify(bufUTF16be, expected);
+        });
+        it("should accept UTF16 Big Endian with BOM buffers", function() {
+            jsonify(bufUTF16beBOM, expected);
+        });
+        it("should handle broken UTF8 code points correctly", function() {
+            var fmt = new JSONFormatter();
+            fmt.append(bufUTF8.slice(0, 20));
+            fmt.append(bufUTF8.slice(20, 23));
+            fmt.end(bufUTF8.slice(23));
+            expect(fmt.flush()).to.be(expected);
+        });
+        it("should handle broken UTF16 code points correctly", function() {
+            var fmt = new JSONFormatter();
+            fmt.append(bufUTF16le.slice(0, 27));
+            fmt.end(bufUTF16le.slice(27));
+            expect(fmt.flush()).to.be(expected);
+
+            fmt.reset().append(bufUTF16be.slice(0, 27));
+            fmt.end(bufUTF16be.slice(27));
+            expect(fmt.flush()).to.be(expected);
+        });
+    });
+})();
+
 });

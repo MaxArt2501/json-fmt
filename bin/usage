@@ -1,0 +1,35 @@
+Transforms a JSON source for minification or pretty-printing.
+
+Usage:
+    json-fmt [filename] [options]
+
+If filename is not specified, STDIN is used as the input stream. The supported
+encoding formats are UTF8, UTF16 Little Endian and UTF16 Big Endian, with or
+without BOM. The output will always be in UTF8 without BOM.
+The options can be one or more of the following:
+
+    -o, --output file     Writes the output in the specified file. If omitted,
+                          STDOUT is used instead.
+    -i, --indent space    Indentation space. `space` can be a string of white
+                          spaces, a number defining the number of spaces, or
+                          the string "tab" to use the tab character.
+    -nl, --newline seq    Newline character sequence. `seq` can be a string,
+                          or one of the strings "crlf", "lfcr", "cr", "lf".
+    -ia, --indent_array   Indents arrays
+    -io, --indent_object  Indents objects
+    -sa, --spaced_array   Puts a space after the opening bracket and before
+                          the closing bracket of arrays
+    -so, --spaced_object  Puts a space after the opening bracket and before
+                          the closing bracket of objects
+    -sc, --space_after_comma  Puts a space after commas when not indenting
+                          arrays or objects
+    -sac, --space_after_colon  Puts a space after the colon
+    -sbc, --space_before_colon  Puts a space after the colon
+    -cf, --comma_first    Puts the comma as the first character of new lines
+                          when indenting arrays and objects
+    -ue, --uppercase_exponential  Use 'E' instead of 'e' when writing numbers
+                          in exponential form. If omitted, it always uses 'e'.
+    -p, --prettify        Uses the common prettifying options (instead of the
+                          minifying ones) as the initial options
+
+Refer to https://github.com/MaxArt2501/json-fmt for more informations.

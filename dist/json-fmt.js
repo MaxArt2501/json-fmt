@@ -1,3 +1,13 @@
+/*!
+json-fmt - A JSON Formatter
+
+*/
+
+/**
+ * @typedef {Object} EncData
+ * @property {String} encoding
+ * @property {Number} bomLength
+ */
 (function (root, factory) {
     if (typeof define === 'function' && define.amd) {
         // AMD. Register as an anonymous module.
@@ -18,6 +28,8 @@
         // Assigned so (context & OBJ) matches both object and array contexts
     var OBJ = 1, KEY = 2, ARR = 3,
 
+        sp40 = new Array(41).join(" "),
+
         // Default options
         defaults = {
             newline: "\n",
@@ -31,7 +43,12 @@
             spacedArray: false,
             spacedObject: false,
             uppercaseExponential: false
-        };
+        },
+
+        seqmap = { t: "true", f: "false", n: "null" },
+
+        isBuffer = typeof Buffer === "undefined"
+                ? function() { return false; } : Buffer.isBuffer;
 
     /**
      * @class
@@ -69,13 +86,40 @@
     }
 
     /**
+     * Guesses the buffer's encoding. Only "utf8", "utf16le" and "utf16be" are
+     * supported. Defaults to UTF8.
+     * @param {Buffer} chunk
+     * @returns {EncData}
+     */
+    function getEncoding(chunk) {
+        if (chunk.length > 1) {
+            // Checks for the presence of the BOM
+            if (chunk[0] === 0xfe && chunk[1] === 0xff)
+                return { encoding: "utf16be", bomLength: 2 };
+            if (chunk[0] === 0xff && chunk[1] === 0xfe)
+                return { encoding: "utf16le", bomLength: 2 };
+            if (2 in chunk && chunk[0] === 0xef && chunk[1] === 0xbb && chunk[2] === 0xbf)
+                return { encoding: "utf8", bomLength: 3 };
+        }
+
+        var enc = "utf8";
+        if (chunk.length > 1)
+            // Educated guess for UTF16
+            if (chunk[0] === 0)
+                enc = "utf16be";
+            else if (chunk[1] === 0)
+                enc = "utf16le";
+
+        return { encoding: enc, bomLength: 0 };
+    }
+
+    /**
      * @classdesc Class to format a JSON string
      * @class Defines the methods in the objects (uses local private variables,
      *        so the methods can't be defined in the prototype)
-     * @param {Object} [options]
+     * @param {Object} [opts]
      */
-    function JSONFormatter(options) {
-        options = extend({}, JSONFormatter.MINI, options);
+    function JSONFormatter(opts) {
 
             // Regexes to look for tokens
         var value =  /["\-\dntf\{\[]/g,
@@ -84,20 +128,26 @@
             string = /"/g,
             strend = /["\}]/g,
 
+            // Regexes to parse data
             strparse = /(?:\\"|[^"\t\r\n])*/g,
             numparse = /(?:0|[1-9]\d*)?(?:\.\d*)?(?:[eE](?:[+\-]?\d*)?)?/g,
             white = /[ \t\r\n]+/g,
             black = /[^ \t\r\n]/g,
 
-            seqmap = { t: "true", f: "false", n: "null" },
-
             rest, result,
             nesting, context,
             propCount, props,
             indent, expecting,
-            totalIndex;
+            totalIndex,
 
-        // Creates a new context
+            encoding, remainder,
+
+            options = extend({}, JSONFormatter.MINI);
+
+        /**
+         * Creates a new parsing context, pushing the current into the stack
+         * @param {Context} ctx
+         */
         function pushContext(ctx) {
             if (context) nesting.push(context);
             if (ctx & OBJ) { // Matches objects and arrays
@@ -110,7 +160,10 @@
             context = ctx;
         }
 
-        // Retrieves the previous context from the stack
+        /**
+         * Retrieves the previous parsing context from the stack
+         * @returns {Context}
+         */
         function popContext() {
             if (context === OBJ && options.indentObject
                     || context === ARR && options.indentArray)
@@ -122,8 +175,11 @@
             return context;
         }
 
-        // Adds a JSON token to the result, adding spaces and
-        // indentation when needed
+        /**
+         * Adds a JSON token to the result, adding spaces and indentation when
+         * needed
+         * @param {String} part
+         */
         function addPart(part) {
             var add = "";
             if (context === KEY) popContext();
@@ -142,13 +198,71 @@
         }
 
         /**
+         * Converts the buffer chunk into a string, according to the encoding
+         * @param {Buffer} chunk
+         * @returns {String}
+         */
+        function convertBuffer(chunk) {
+            if (remainder) chunk = Buffer.concat([ remainder, chunk ]);
+            remainder = null;
+
+            var result, cut;
+
+            switch (encoding) {
+                case "utf8":
+                    result = chunk.toString();
+                    // Checks if converting to string has truncated an UTF8 code
+                    // point, which may be long up to 3 bytes. "\ufffd" is the
+                    // 'WTF' character that toString puts if it can't decode the
+                    // sequence, but it can also be generated by a legitimate
+                    // code point (ef bf bd).
+                    if (result[result.length - 1] === "\ufffd"
+                            && chunk.slice(-3).toString("binary") !== "\xef\xbf\xbd") {
+                        if (result[result.length - 2] === "\ufffd"
+                                && chunk.slice(-4, -1).toString("binary") !== "\xef\xbf\xbd")
+                            cut = -2;
+                        else cut = -1;
+                        result = result.slice(0, cut);
+                        remainder = chunk.slice(cut);
+                    }
+                    break;
+
+                case "utf16be":
+                    // Converting to little-endian. `& -2` excludes an eventual
+                    // last odd byte
+                    for (var i = 0, l = chunk.length & -2; i < l; i += 2)
+                        chunk.writeUInt16LE(chunk.readUInt16BE(i), i);
+                    // Fall-through
+                case "utf16le":
+                    // If the chunk's lenght is odd, keep the last byte as a
+                    // remainder for the next chunk
+                    if (chunk.length & 1) {
+                        remainder = chunk.slice(-1);
+                        chunk = chunk.slice(0, -1);
+                    }
+                    result = chunk.toString("ucs2");
+            }
+
+            return result;
+        }
+
+        /**
          * Parses a chunk of JSON string to the current result
          * @memberof JSONFormatter
-         * @param {String} chunk
-         * @throws {JSONError}       In case of syntax error
+         * @param {String|Buffer} chunk
+         * @throws {JSONError}           In case of syntax error
          * @returns {JSONFormatter}
          */
         this.append = function(chunk) {
+            if (isBuffer(chunk)) {
+                if (!encoding) {
+                    var encData = getEncoding(chunk);
+                    if (encData.bomLength)
+                        chunk = chunk.slice(encData.bomLength);
+                    encoding = encData.encoding
+                }
+                chunk = convertBuffer(chunk);
+            }
             if (rest) {
                 chunk = rest + chunk;
                 rest = "";
@@ -307,13 +421,14 @@
         /**
          * Verifies that the current result is correct. Eventually parses
          * a last chunk of JSON string.
-         * @param {String} [chunk]
-         * @throws {JSONError}       In case of premature end of JSON
+         * @memberof JSONFormatter
+         * @param {String|Buffer} [chunk]
+         * @throws {JSONError}            In case of premature end of JSON
          * @returns {JSONFormatter}
          */
         this.end = function(chunk) {
             if (chunk) this.append(chunk);
-            if (!result) this.append(" ");
+            if (!result) this.append(remainder || " ");
             if (!result || context)
                 throw new JSONError("Unexpected end of input", totalIndex);
 
@@ -322,6 +437,7 @@
 
         /**
          * Returns (and consumes) the current result so far
+         * @memberof JSONFormatter
          * @returns {String}
          */
         this.flush = function() {
@@ -333,6 +449,7 @@
         /**
          * Resets the formatter, throwing away the current state and result,
          * and eventually changing the current options
+         * @memberof JSONFormatter
          * @param {Object} [opts]
          * @returns {JSONFormatter}
          */
@@ -340,36 +457,41 @@
             rest = result = indent = "";
             nesting = [];
             propCount = [];
-            context = props = null;
+            context = props = encoding = remainder = null;
             expecting = value;
             totalIndex = 0;
 
-            if (opts) options = extend(options, opts);
+            if (opts) {
+                options = extend(options, opts);
+                if (typeof options.indent === "number")
+                    options.indent = sp40.substring(0, options.indent);
+            }
             return this;
         };
 
-        this.reset();
+        this.reset(opts);
     }
 
-    // Minifyinf options
-    JSONFormatter.MINI = extend({}, defaults);
+    return extend(JSONFormatter, {
+        version: "1.1.0",
+        JSONError: JSONError,
 
-    // Common prettifying options
-    JSONFormatter.PRETTY = {
-        newline: "\n",
-        indent: "  ",
-        indentArray: true,
-        indentObject: true,
-        commaFirst: false,
-        spaceAfterColon: true,
-        spaceAfterComma: true,
-        spaceBeforeColon: false,
-        spacedArray: false,
-        spacedObject: false,
-        uppercaseExponential: false
-    };
+        // Minifying options
+        MINI: extend({}, defaults),
 
-    JSONFormatter.JSONError = JSONError;
-
-    return JSONFormatter;
+        // Common prettifying options
+        PRETTY: {
+            newline: "\n",
+            indent: "  ",
+            indentArray: true,
+            indentObject: true,
+            commaFirst: false,
+            spaceAfterColon: true,
+            spaceAfterComma: true,
+            spaceBeforeColon: false,
+            spacedArray: false,
+            spacedObject: false,
+            uppercaseExponential: false
+        }
+    });
 });

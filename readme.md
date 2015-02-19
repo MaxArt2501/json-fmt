@@ -5,11 +5,13 @@ Minify and prettify your JSONs
 
 ## What it is
 
-The package `json-fmt` defined the class `JSONFormatter` for handling JSON strings, in order to give them a better presentation than the weak third argument of [`JSON.stringify`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify), or to minify them.
+The package `json-fmt` defines the class `JSONFormatter` for handling JSON strings, in order to give them a better presentation than the weak third argument of [`JSON.stringify`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify), or to minify them. No dependencies. It also comes in CLI flavour.
+
+See the [changelog](changelog.md) to know the latest changes.
 
 ### What is *not* (yet)
 
-* An object serializer: use `JSON.stringify` instead (there are polyfills for IE7-), and eventually use the result with `JSONFormatter`.
+* An object serializer: use `JSON.stringify` instead (there are [polyfills for IE7-](https://github.com/douglascrockford/JSON-js)), and eventually use the result with `JSONFormatter`.
 * A syntax checker: although `JSONFormatter` *does* throw errors in case of malformed JSONs, it's not a fully fledged syntax checker (specifically, it doesn't thoroughly checks strings).
 
 ## Installation
@@ -19,6 +21,8 @@ Via `npm`:
 ```bash
 $ npm install json-fmt
 ```
+
+Use the option `-g` to get the CLI tool.
 
 Via `bower`:
 
@@ -62,7 +66,7 @@ var fmt = new JSONFormatter(JSONFormatter.PRETTY);
 // minifying options
 var fmt = new JSONFormatter({ indent: "\t", spaceBeforeColon: true });
 
-// Elaborates a JSON string
+// Elaborates a JSON string.
 fmt.append(' { "foo": "bar", "test": 5 }');
 console.log(fmt.flush()) // -> '{"foo":"bar","test":5}'
 
@@ -79,6 +83,9 @@ console.log(fmt.flush());
 // {
 //   "foo":"bar"
 
+// Calling flush() again will result in the empty string
+console.log(fmt.flush()); // -> ""
+
 // Elaborates a last chunk of JSON string (optional) and checks for completeness
 fmt.end(',"baz": [1, 2, 3]}');
 console.log(fmt.flush());
@@ -88,17 +95,35 @@ console.log(fmt.flush());
 // }
 ```
 
+Note that in node.js/io.js `append()` and `end()` can accept a `Buffer` object too. The formatter will guess the used encoding. The only ones supported are UTF8, UTF16 Little Endian and UTF16 Big Endian, with or without BOM. If you expect other encodings, consider using conversions tool like [node-iconv](https://github.com/bnoordhuis/node-iconv) or [iconv-lite](https://github.com/ashtuchkin/iconv-lite).
+
+It's safe to do as following, as long as the encoding is one of the above:
+
+```js
+var fs = require("fs"),
+    JSONFormatter = require("json-fmt");
+
+var fmt = new JSONFormatter(),
+    stream = fs.createReadStream("somefile.json");
+
+stream.on("data", function(chunk) {
+    fmt.append(chunk);
+});
+```
+
+The formatter will strip the BOM if it finds one, and will nicely handle broken UTF code points.
+
 ## Options
 
 This is the set of accepted options, that are normally set to minify the JSON string.
 
 * `newline` - default: `"\n"` (line feed)
 
-  The new line sequence, used when indenting.
+  The new line sequence, used when indenting. The given value isn't checked.
 
 * `indent` - default: `"  "` (two spaces)
 
-  Indenting space. It's expected to be a string of spaces or tabs only, but no check is done about it.
+  Indenting space. It's expected to be a string of spaces or tabs only, but no check is done about it. If a number is provided, the indentation space is set to that amount of spaces (up to 40).
 
 * `indentArray` - default: `false`
 
@@ -148,6 +173,10 @@ This is the set of accepted options, that are normally set to minify the JSON st
 * `uppercaseExponential` - default: `false`
 
   When rendering numbers in exponential format, the `e` character is transformed into `E`; otherwise, it's always rendered as lowercase.
+
+## Command Line Interface (CLI)
+
+When installed globally with npm, a CLI command `json-fmt` is created, providing a tool to transform JSON files and streams. See [usage](bin/usage) for more informations.
 
 ## License
 
