@@ -1,6 +1,6 @@
 {
   "name": "json-fmt",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Minify and prettify your JSONs",
   "main": "dist/json-fmt.js",
   "directories": {
