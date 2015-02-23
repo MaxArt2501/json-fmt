@@ -94,6 +94,11 @@ input.on("data", function(chunk) {
     output.write(chunk);
 });
 input.on("end", function() {
+    try {
+        fmt.end();
+    } catch (e) {
+        errorExit(21, e.message + (e.name !== "JSONError" ? "\n" + e.stack : ""));
+    }
     process.exit();
 });
 

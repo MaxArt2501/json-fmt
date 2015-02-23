@@ -63,8 +63,27 @@ json-fmt - A JSON Formatter
             this.message = message + " at index " + index;
             this.index = index;
         } else this.message = message;
+
+        if (Error.captureStackTrace) // Blink
+            Error.captureStackTrace(this, JSONError);
+        else {
+            try {
+                throw new Error();
+            } catch (e) {
+                var stack = e.stack;
+                if (!e.stack) return;
+
+                if (e.stack.slice(0, e.name.length) === e.name) // Trident
+                    stack = [ this.name + ": " + message ].concat(e.stack.split("\n").slice(2)).join("\n");
+                else stack = e.stack.slice(e.stack.indexOf("\n") + 1); // Gecko, WebKit
+
+                e.stack && Object.defineProperty(this, "stack", {
+                    value: stack, enumerable: false, writable: false, configurable: true
+                });
+            }
+        }
     }
-    JSONError.prototype = new Error();
+    JSONError.prototype = Object.create ? Object.create(Error.prototype) : Error();
     JSONError.prototype.name = "JSONError";
 
     /**
@@ -138,7 +157,7 @@ json-fmt - A JSON Formatter
             nesting, context,
             propCount, props,
             indent, expecting,
-            totalIndex,
+            totalIndex, hadContent,
 
             encoding, remainder,
 
@@ -412,6 +431,7 @@ json-fmt - A JSON Formatter
                 if (match)
                     throw new JSONError("Syntax error", totalIndex + match.index);
             }
+            if (result && !hadContent) hadContent = true;
 
             totalIndex += chunk.length - rest.length;
 
@@ -428,8 +448,7 @@ json-fmt - A JSON Formatter
          */
         this.end = function(chunk) {
             if (chunk) this.append(chunk);
-            if (!result) this.append(remainder || " ");
-            if (!result || context)
+            if (!hadContent || context)
                 throw new JSONError("Unexpected end of input", totalIndex);
 
             return this;
@@ -460,6 +479,7 @@ json-fmt - A JSON Formatter
             context = props = encoding = remainder = null;
             expecting = value;
             totalIndex = 0;
+            hadContent = false;
 
             if (opts) {
                 options = extend(options, opts);
@@ -473,7 +493,7 @@ json-fmt - A JSON Formatter
     }
 
     return extend(JSONFormatter, {
-        version: "1.1.0",
+        version: "1.1.2",
         JSONError: JSONError,
 
         // Minifying options
