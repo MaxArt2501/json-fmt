@@ -7,7 +7,7 @@ Minify and prettify your JSONs
 
 The package `json-fmt` defines the class `JSONFormatter` for handling JSON strings, in order to give them a better presentation than the weak third argument of [`JSON.stringify`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify), or to minify them. No dependencies.
 
-It also comes in CLI flavour, and there's a [gulp.js plugin](https://github.com/MaxArt2501/gulp-json-fmt/). See the [changelog](changelog.md) to know the latest changes.
+It also comes in CLI flavour, and there's a [gulp.js plugin](https://github.com/MaxArt2501/gulp-json-fmt/) and a [Grunt plugin](https://github.com/MaxArt2501/grunt-json-fmt). See the [changelog](changelog.md) to know the latest changes.
 
 ### What is *not* (yet)
 
